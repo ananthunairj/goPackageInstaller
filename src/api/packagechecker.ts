@@ -5,7 +5,7 @@ import { extractRepoPath, getRepoStars } from "../helpers/packageRank";
 
 export async function checkingPackage(
   keyword: string
-): Promise<string[] | undefined> {
+): Promise<{ topResults: string[]; rawResults: string[] } | undefined> {
   const url = `https://pkg.go.dev/search?q=${encodeURIComponent(keyword)}`;
   try {
     const response = await axios.get(url, {
@@ -26,23 +26,35 @@ export async function checkingPackage(
       return undefined;
     }
     var arrayAfterCheck = arrayCharacterChecker(results);
-    const rankedPackages = await Promise.all(arrayAfterCheck.map(async (pkgUrl) => {
+    const rankedPackages = await Promise.all(
+      arrayAfterCheck.map(async (pkgUrl) => {
         const repo = extractRepoPath(pkgUrl);
-        const stars = repo ? await getRepoStars(repo) : 0;
-        return {url : repo, stars};
-    }));
+        const popularity = repo ? await getRepoStars(repo) : "";
+        return { url: repo, popularity };
+      })
+    );
 
-    rankedPackages.sort((a,b) => b.stars - a.stars);
+    rankedPackages.sort((a, b) => {
+      const getCount = (str: string) => {
+        const match = str.match(/\d+/);
+        return match ? parseInt(match[0]) : 0;
+      };
+      return getCount(b.popularity) - getCount(a.popularity);
+    });
     const topResults: string[] = [];
+    const resultUrl: string[] = [];
     const seen = new Set<string>();
     for (const pkg of rankedPackages) {
-      if(pkg.url && !seen.has(pkg.url)) {
+      if (pkg.url && !seen.has(pkg.url)) {
         seen.add(pkg.url);
-        topResults.push(`${pkg.url} ⭐ ${pkg.stars}`);
+        topResults.push(`${pkg.url}  ${pkg.popularity}`);
+        resultUrl.push(`https://pkg.go.dev/github.com/${pkg.url}`);
       }
     }
-    return topResults;
-
+    return {
+      topResults,
+      rawResults: resultUrl,
+    };
   } catch (err: any) {
     console.error("Error fetching or parsing:", err.message);
     return err;

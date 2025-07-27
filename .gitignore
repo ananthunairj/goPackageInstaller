@@ -6,3 +6,4 @@ dist/*
 !dist/images/
 !dist/images/**
 .env
+.vsix

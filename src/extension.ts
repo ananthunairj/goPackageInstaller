@@ -1,14 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
-import dotenv from "dotenv";
-const envPath = path.join(__dirname, "..", ".env");
-if (fs.existsSync(envPath)) {
-  dotenv.config({ path: envPath });
-  console.log("✅ .env loaded:", process.env.GITHUB_TOKEN?.slice(0, 8));
-} else {
-  console.warn("❌ .env not found at:", envPath);
-}
 import { characterChecker } from "./helpers/charcorrector";
 import { checkingPackage } from "./api/packagechecker";
 import { terminalExecutor, versionFinder } from "./helpers/terminalrunner";
@@ -18,67 +8,98 @@ export function activate(context: vscode.ExtensionContext) {
     'Congratulations, your extension "go-package-installer" is now active!'
   );
 
-  const disposable = vscode.commands.registerCommand(
-    "go-package-installer.helloWorld",
-    async () => {
-      const userInput = await vscode.window.showInputBox({
-        placeHolder: "Enter GO package Keyword⚡",
-      });
+const disposable = vscode.commands.registerCommand(
+  "go-package-installer.helloWorld",
+  async () => {
+    const userInput = await vscode.window.showInputBox({
+      placeHolder: "Enter GO package Keyword⚡",
+    });
 
-      if (userInput) {
-        var keyword: string = characterChecker(userInput) as string;
-        let resultpackages: string[] | undefined;
-        await vscode.window.withProgress(
-          {
-            location: vscode.ProgressLocation.Notification,
-            title: `Searching for "${userInput}"`,
-            cancellable: false,
-          },
-          async (progress) => {
-            resultpackages = await checkingPackage(keyword);
+    if (userInput) {
+      const keyword: string = characterChecker(userInput) as string;
+      let resultpackages: { topResults: string[]; rawResults: string[] } | undefined;
+
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Searching for "${userInput}"`,
+          cancellable: false,
+        },
+        async () => {
+          resultpackages = await checkingPackage(keyword);
+        }
+      );
+
+      if (
+        Array.isArray(resultpackages?.topResults) &&
+        resultpackages.topResults.length > 0
+      ) {
+        const quickPickItems = resultpackages.topResults.map((label, i) => ({
+          label: label,
+          description: "",
+          detail: "",
+          rawUrl: resultpackages!.rawResults[i],
+        }));
+
+        const selected = await vscode.window.showQuickPick(quickPickItems, {
+          placeHolder: "Select a Go package",
+        });
+
+        if (selected) {
+          const url = selected.label;
+
+
+          const action = await vscode.window.showQuickPick(
+            ["📦 Install package", "🌐 Open on pkg.go.dev"],
+            {
+              placeHolder: `What do you want to do with "${url}"?`,
+            }
+          );
+
+          if (action === "🌐 Open on pkg.go.dev") {
+            vscode.env.openExternal(vscode.Uri.parse(selected.rawUrl));
+            return;
           }
-        );
-        if (Array.isArray(resultpackages) && resultpackages.length > 0) {
-          const selected = await vscode.window.showQuickPick(resultpackages, {
-            placeHolder: "Select a Go package",
-          });
-          if (selected) {
-            const url = selected.split(" ⭐ ")[0];
+
+          if (action === "📦 Install package") {
             let versions: string[] | undefined;
+
             await vscode.window.withProgress(
               {
                 location: vscode.ProgressLocation.Notification,
                 title: `Searching for "${url}"`,
                 cancellable: false,
               },
-              async (progress) => {
+              async () => {
                 versions = await versionFinder(url);
               }
             );
+
             if (Array.isArray(versions) && versions.length > 0) {
-              const selectVersion = await vscode.window.showQuickPick(
-                versions,
-                {
-                  placeHolder: "Choose Package Version",
-                }
-              );
+              const selectVersion = await vscode.window.showQuickPick(versions, {
+                placeHolder: "Choose Package Version",
+              });
+
               if (selectVersion) {
                 terminalExecutor(url, selectVersion);
               } else {
                 vscode.window.showErrorMessage("Invalid package version");
               }
             } else {
-              vscode.window.showErrorMessage("no version found");
+              vscode.window.showErrorMessage("No version found");
             }
           }
-        } else {
-          vscode.window.showErrorMessage("no package found");
         }
+      } else {
+        vscode.window.showErrorMessage("No package found");
       }
     }
-  );
+  }
+);
 
-  context.subscriptions.push(disposable);
+context.subscriptions.push(disposable);
+
+
 }
 
 export function deactivate() {}

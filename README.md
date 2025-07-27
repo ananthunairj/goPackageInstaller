@@ -1,29 +1,30 @@
-# Go Package Installer
+# Go Packager
 
-**Install Go packages quickly — search, select version, and install without leaving VS Code!**
+A Visual Studio Code extension to streamline packaging of Go projects. Bundle your Go source into a single distributable file with one click.
 
----
+![Animated Preview](assets/go-packager-anim.gif)
 
-## 🚀 Features
+## Features
 
-- 🔍 Search Go packages directly from the command palette
-- ⭐ Displays GitHub star count for ranking results
-- 🧩 Choose version tags and run `go get` or `go install` with one click
+- **One-Click Packaging**  
+  Run your Go build and package commands right from the Command Palette.
 
+- **Customizable Build Tasks**  
+  Define your own `go build` flags and output path in your workspace settings.
 
----
+- **Integrated Status & Logs**  
+  See build progress, errors, and success notifications inline.
 
-## 📦 Demo
+- **Multi-Platform Support**  
+  Automatically detect and target Windows, macOS, and Linux binaries.
 
-![Demo](./assets/go-packager-anim.gif)
+## Installation
 
- ---
+1. Open the **Extensions** sidebar in VS Code (`Ctrl+Shift+X` / `⌘+Shift+X`).
+2. Search for **“Go Packager”**.
+3. Click **Install**.
 
-1. Run **Go Package Install** via `Ctrl+Shift+P` (or ⌘+Shift+P on macOS)
-2. Enter a search keyword (e.g., `mux`)
-3. Select from the ranked list of GitHub-based results
-4. Choose a version tag you’d like
-5. The extension executes `go get <package>@<version>` in the integrated terminal
+Or download the `.vsix` and run:
 
-
-
+```bash
+code --install-extension go-packager-0.0.1.vsix
