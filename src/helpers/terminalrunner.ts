@@ -1,6 +1,4 @@
 import * as vscode from "vscode";
-import * as fs from "fs/promises";
-import * as path from "path";
 import axios from "axios";
 
 export async function versionFinder(importPath: string) {
@@ -10,15 +8,24 @@ export async function versionFinder(importPath: string) {
 }
 
 async function versionGetter(importPath: string): Promise<string[]> {
-  var proxyUrl = `https://proxy.golang.org/github.com/${importPath}/@v/list`;
+  let segment = importPath.split("/").splice(0, 2).join("/");
+  var proxyUrl = `https://proxy.golang.org/github.com/${segment}/@v/list`;
   try {
     const response = await axios.get(proxyUrl, {
       headers: {
         Accept: "text/plain",
       },
     });
-    const versions = response.data.split("\n").filter(Boolean);
-    return versions;
+    const filteredVersion: string[] = [];
+    const versions = response.data.split("\n");
+    var regex = /^v\d+\.\d+\.\d+$/g;
+    for (var version of versions) {
+     let result : boolean = regex.test(version);
+     if (result) {
+      filteredVersion.push(version);
+     }
+    }
+    return filteredVersion;
   } catch (err: any) {
     console.error("Failed to fetch versions:", err.message);
     return [];
@@ -33,7 +40,6 @@ export async function terminalExecutor(
     const terminal = vscode.window.createTerminal("Go Installer");
     terminal.show(true);
     terminal.sendText(`go get github.com/${repoPath}@${version}`);
-   
   } else {
     const terminal = vscode.window.createTerminal("Go Installer");
     terminal.show(true);
@@ -42,18 +48,16 @@ export async function terminalExecutor(
   await importWriter(repoPath);
 }
 
-
-async function importWriter(url : string) {
-
+async function importWriter(url: string) {
   const editor = vscode.window.activeTextEditor;
-   if(!editor) {
-      vscode.window.showErrorMessage("No active editor found.");
-      return;
-    }
-    const doc = editor.document;
+  if (!editor) {
+    vscode.window.showErrorMessage("No active editor found.");
+    return;
+  }
+  const doc = editor.document;
   const filePath = doc.uri.fsPath;
 
-  if (!filePath.endsWith('.go')) {
+  if (!filePath.endsWith(".go")) {
     vscode.window.showErrorMessage("Current file is not a Go file.");
     return;
   }
@@ -78,13 +82,13 @@ async function importWriter(url : string) {
       vscode.window.showErrorMessage("No 'package' statement found.");
       return;
     }
- const packageEndPos = doc.positionAt(packageMatch.index! + packageMatch[0].length);
+    const packageEndPos = doc.positionAt(
+      packageMatch.index! + packageMatch[0].length
+    );
     const newImportBlock = `\n\nimport (\n${importLine})\n`;
     edit.insert(doc.uri, packageEndPos, newImportBlock);
   }
 
   await vscode.workspace.applyEdit(edit);
   vscode.window.showInformationMessage(`Added import "${url}"`);
-
-
 }

@@ -5,7 +5,7 @@ import { extractRepoPath, getRepoStars } from "../helpers/packageRank";
 
 export async function checkingPackage(
   keyword: string
-): Promise<{ topResults: string[]; rawResults: string[] } | undefined> {
+): Promise<{ topResults: string[]; rawResults: string[]; repositoryPath:string[] } | undefined> {
   const url = `https://pkg.go.dev/search?q=${encodeURIComponent(keyword)}`;
   try {
     const response = await axios.get(url, {
@@ -43,10 +43,12 @@ export async function checkingPackage(
     });
     const topResults: string[] = [];
     const resultUrl: string[] = [];
+    const repoPath : string[] = [];
     const seen = new Set<string>();
     for (const pkg of rankedPackages) {
       if (pkg.url && !seen.has(pkg.url)) {
         seen.add(pkg.url);
+        repoPath.push(pkg.url);
         topResults.push(`${pkg.url}  ${pkg.popularity}`);
         resultUrl.push(`https://pkg.go.dev/github.com/${pkg.url}`);
       }
@@ -54,6 +56,7 @@ export async function checkingPackage(
     return {
       topResults,
       rawResults: resultUrl,
+      repositoryPath : repoPath,
     };
   } catch (err: any) {
     console.error("Error fetching or parsing:", err.message);

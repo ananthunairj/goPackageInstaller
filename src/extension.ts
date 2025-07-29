@@ -17,7 +17,7 @@ const disposable = vscode.commands.registerCommand(
 
     if (userInput) {
       const keyword: string = characterChecker(userInput) as string;
-      let resultpackages: { topResults: string[]; rawResults: string[] } | undefined;
+      let resultpackages: { topResults: string[]; rawResults: string[];  repositoryPath : string[] } | undefined;
 
       await vscode.window.withProgress(
         {
@@ -27,6 +27,7 @@ const disposable = vscode.commands.registerCommand(
         },
         async () => {
           resultpackages = await checkingPackage(keyword);
+       
         }
       );
 
@@ -39,6 +40,7 @@ const disposable = vscode.commands.registerCommand(
           description: "",
           detail: "",
           rawUrl: resultpackages!.rawResults[i],
+    
         }));
 
         const selected = await vscode.window.showQuickPick(quickPickItems, {
@@ -52,7 +54,7 @@ const disposable = vscode.commands.registerCommand(
           const action = await vscode.window.showQuickPick(
             ["📦 Install package", "🌐 Open on pkg.go.dev"],
             {
-              placeHolder: `What do you want to do with "${url}"?`,
+              placeHolder: `What do you want to do with "${url}"?`,             
             }
           );
 
