@@ -40,6 +40,7 @@ const disposable = vscode.commands.registerCommand(
           description: "",
           detail: "",
           rawUrl: resultpackages!.rawResults[i],
+          repoPath: resultpackages!.repositoryPath[i],
     
         }));
 
@@ -48,7 +49,7 @@ const disposable = vscode.commands.registerCommand(
         });
 
         if (selected) {
-          const url = selected.label;
+          const url = selected.repoPath;
 
 
           const action = await vscode.window.showQuickPick(
