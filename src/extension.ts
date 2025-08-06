@@ -50,7 +50,7 @@ const disposable = vscode.commands.registerCommand(
 
         if (selected) {
           const url = selected.repoPath;
-
+          
 
           const action = await vscode.window.showQuickPick(
             ["📦 Install package", "🌐 Open on pkg.go.dev"],
