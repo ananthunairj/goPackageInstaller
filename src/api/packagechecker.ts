@@ -4,8 +4,11 @@ import { arrayCharacterChecker } from "../helpers/charcorrector";
 import { extractRepoPath, getRepoStars } from "../helpers/packageRank";
 
 export async function checkingPackage(
-  keyword: string
-): Promise<{ topResults: string[]; rawResults: string[]; repositoryPath:string[] } | undefined> {
+  keyword: string,
+): Promise<
+  | { topResults: string[]; rawResults: string[]; repositoryPath: string[] }
+  | undefined
+> {
   const url = `https://pkg.go.dev/search?q=${encodeURIComponent(keyword)}`;
   try {
     const response = await axios.get(url, {
@@ -26,13 +29,32 @@ export async function checkingPackage(
       return undefined;
     }
     var arrayAfterCheck = arrayCharacterChecker(results);
-    const rankedPackages = await Promise.all(
+    type Rankedpackage = {url: string;popularity: string}
+    const rankedPackages = (await Promise.all(
       arrayAfterCheck.map(async (pkgUrl) => {
         const repo = extractRepoPath(pkgUrl);
-        const popularity = repo ? await getRepoStars(repo) : "";
-        return { url: repo, popularity };
-      })
-    );
+        if (!repo){
+          return null;
+        }
+        try {
+          const response = await axios.get(
+            `https://proxy.golang.org/github.com/${repo}/@v/list`,
+            {
+              headers: {
+                Accept: "text/plain",
+              },
+            },
+          );
+          if (response.status !== 200) {
+            return null;
+          }
+          const popularity = await getRepoStars(repo) ;
+          return { url: repo, popularity: popularity ?? 0 } satisfies Rankedpackage;
+        } catch (e) {
+          return null;
+        }
+      }),
+    )).filter((x): x is Rankedpackage => x !== null);
 
     rankedPackages.sort((a, b) => {
       const getCount = (str: string) => {
@@ -43,7 +65,7 @@ export async function checkingPackage(
     });
     const topResults: string[] = [];
     const resultUrl: string[] = [];
-    const repoPath : string[] = [];
+    const repoPath: string[] = [];
     const seen = new Set<string>();
     for (const pkg of rankedPackages) {
       if (pkg.url && !seen.has(pkg.url)) {
@@ -56,7 +78,7 @@ export async function checkingPackage(
     return {
       topResults,
       rawResults: resultUrl,
-      repositoryPath : repoPath,
+      repositoryPath: repoPath,
     };
   } catch (err: any) {
     console.error("Error fetching or parsing:", err.message);

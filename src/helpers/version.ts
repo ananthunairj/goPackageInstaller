@@ -6,8 +6,8 @@ import axios from "axios";
 // }
 
 export async function versionGetter(importPath: string): Promise<string[]> {
-  let segment = importPath.split("/").splice(0, 2).join("/");
-  var proxyUrl = `https://proxy.golang.org/github.com/${segment}/@v/list`;
+  // let segment = importPath.split("/").splice(0, 2).join("/");
+  var proxyUrl = `https://proxy.golang.org/github.com/${importPath}/@v/list`;
   try {
     const response = await axios.get(proxyUrl, {
       headers: {

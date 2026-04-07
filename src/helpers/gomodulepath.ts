@@ -10,7 +10,7 @@ import { exec } from 'child_process';
 const execAsync = util.promisify(exec);
 
 export async function getsafeGomodulePath(importpath:string) : Promise<string>{
-   const resolved = await resolveModuleviaTemporaryGoMNod(importpath);
+   const resolved = await resolveModuleviaTemporaryGoMod(importpath);
    if(resolved) {
     return resolved;
    }
@@ -19,7 +19,7 @@ export async function getsafeGomodulePath(importpath:string) : Promise<string>{
     
 }
 
-async function resolveModuleviaTemporaryGoMNod(importpath:string)  : Promise<string | undefined>{
+async function resolveModuleviaTemporaryGoMod(importpath:string)  : Promise<string | undefined>{
     const tempdir = await fs.mkdtemp(path.join(os.tmpdir(), 'gomod-'));
 
     try {
