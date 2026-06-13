@@ -84,7 +84,7 @@ const disposable = vscode.commands.registerCommand(
               });
 
               if (selectVersion) {
-                terminalExecutor(url, selectVersion);
+                await terminalExecutor(url, selectVersion);
               } else {
                 vscode.window.showErrorMessage("Invalid package version");
               }
