@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension to streamline packaging of Go projects. Bundle your Go source into a single distributable file with one click.
 
-![Animated Preview](assets/go-packager-anim.gif)
+![Animated Preview](./assets/go-packager-anim.gif)
 
 ## Features
 
@@ -21,10 +21,25 @@ A Visual Studio Code extension to streamline packaging of Go projects. Bundle yo
 ## Installation
 
 1. Open the **Extensions** sidebar in VS Code (`Ctrl+Shift+X` / `⌘+Shift+X`).
-2. Search for **“Go Packager”**.
+2. Search for **“Go Package Integrator”**.
 3. Click **Install**.
 
 Or download the `.vsix` and run:
 
 ```bash
 code --install-extension go-packager-0.0.1.vsix
+```
+
+## How to Run
+
+1. Open the Command Palette with `Ctrl+Shift+P` (Windows/Linux) or `⌘+Shift+P` (macOS).
+2. Type `Go Package Install` and select the command.
+3. Enter a Go package keyword when prompted.
+4. Choose a Go package from the list.
+5. Select either `Install package` to install the selected package or `Open on pkg.go.dev` to view it in your browser.
+6. Choose the desired package version.
+
+## Notes
+
+- This extension works with Go package keywords and automatically finds package versions.
+- If no package is found, you will be shown an error message.
