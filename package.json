@@ -3,8 +3,15 @@
   "name": "go-package-extractor",
   "displayName": "Go Package Integrator",
   "description": "Extension in which you can download the go packages at ease without manually getting those nerve wracking git links😁",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "icon":"dist/images/gopher.png",
+  "files": [
+    "dist/**",
+    "assets/**",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Anandhu3301/go-package-installer"
