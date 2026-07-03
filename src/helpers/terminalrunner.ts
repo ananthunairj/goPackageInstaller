@@ -13,44 +13,95 @@ export async function versionFinder(importPath: string) {
   return [];
 }
 
+async function getCanonicalModulePath(repoPath: string): Promise<string | null> {
+  try {
+    const { stdout } = await exec(`go mod download -json github.com/${repoPath}@latest`, {
+      cwd: getCommandWorkingDirectory(),
+      maxBuffer: 1024 * 1024,
+    });
+
+    const info = JSON.parse(stdout);
+    // Extract the actual module path from go.mod
+    return info?.Path?.replace("github.com/", "") || null;
+  } catch (error: any) {
+    return null;
+  }
+}
+
+function extractCanonicalPathFromError(errorMessage: string): string | null {
+  // Extract from error: "module declares its path as: github.com/moby/moby/client but was required as: ..."
+  const match = errorMessage.match(/module declares its path as:\s*github\.com\/([^\s]+)\s+but was required/);
+  return match?.[1] || null;
+}
+
 export async function terminalExecutor(
   repoPath: string,
   version: string | null
 ) {
-  const moduleRef = `github.com/${repoPath}`;
-  const command = version
-    ? `go get ${moduleRef}@${version}`
-    : `go get -u ${moduleRef}`;
   const cwd = getCommandWorkingDirectory();
-  const desiredRef = version ? `${moduleRef}@${version}` : moduleRef;
+  let actualRepoPath = repoPath;
+  let attempts = 0;
+  const maxAttempts = 2;
 
   await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: `Installing ${moduleRef}`,
+      title: `Installing github.com/${repoPath}`,
       cancellable: false,
     },
     async (progress) => {
-      progress.report({ message: "Downloading package..." });
+      while (attempts < maxAttempts) {
+        attempts++;
+        const moduleRef = `github.com/${actualRepoPath}`;
+        const command = version
+          ? `go get ${moduleRef}@${version}`
+          : `go get -u ${moduleRef}`;
+        const desiredRef = version ? `${moduleRef}@${version}` : moduleRef;
 
-      try {
-        await exec(command, { cwd, maxBuffer: 1024 * 1024 });
-      } catch (error: any) {
-        const message = trimError(error?.stderr || error?.message || "go get failed");
-        vscode.window.showErrorMessage(`Go package installation failed: ${message}`);
-        return;
+        progress.report({ message: `Downloading package... (attempt ${attempts})` });
+
+        try {
+          await exec(command, { cwd, maxBuffer: 1024 * 1024 });
+
+          // Success - verify download
+          progress.report({ message: "Verifying download..." });
+          const downloaded = await verifyModuleDownloaded(desiredRef, cwd);
+          if (!downloaded) {
+            vscode.window.showErrorMessage(`Package was not downloaded: ${desiredRef}`);
+            return;
+          }
+
+          // Success - add import
+          progress.report({ message: "Adding import to current file..." });
+          await importWriter(actualRepoPath);
+          
+          if (actualRepoPath !== repoPath) {
+            vscode.window.showInformationMessage(
+              `Package installed successfully!\nPath was corrected: ${repoPath} → ${actualRepoPath}`
+            );
+          } else {
+            vscode.window.showInformationMessage(`Package installed and import added: ${moduleRef}`);
+          }
+          return;
+        } catch (error: any) {
+          const errorText = error?.stderr || error?.message || "go get failed";
+          
+          // Try to extract canonical path from error
+          const canonicalPath = extractCanonicalPathFromError(errorText);
+          
+          if (canonicalPath && canonicalPath !== actualRepoPath && attempts < maxAttempts) {
+            // Path mismatch detected - retry with canonical path
+            vscode.window.showInformationMessage(`Detected path redirect: retrying with ${canonicalPath}`);
+            actualRepoPath = canonicalPath;
+            continue;
+          }
+
+          // No recovery possible - show error
+          const message = trimError(errorText);
+          vscode.window.showErrorMessage(`Go package installation failed: ${message}`);
+          return;
+        }
       }
-
-      progress.report({ message: "Verifying download..." });
-      const downloaded = await verifyModuleDownloaded(desiredRef, cwd);
-      if (!downloaded) {
-        vscode.window.showErrorMessage(`Package was not downloaded: ${desiredRef}`);
-        return;
-      }
-
-      progress.report({ message: "Adding import to current file..." });
-      await importWriter(repoPath);
-      vscode.window.showInformationMessage(`Package installed and import added: ${moduleRef}`);
     }
   );
 }
@@ -96,36 +147,57 @@ async function importWriter(url: string) {
   }
 
   const doc = editor.document;
-  const filePath = doc.uri.fsPath;
-
-  if (!filePath.endsWith(".go")) {
+  if (!doc.uri.fsPath.endsWith(".go")) {
     vscode.window.showErrorMessage("Current file is not a Go file.");
     return;
   }
 
   const text = doc.getText();
+  const importPath = `github.com/${url}`;
+
+  // Verify package statement exists
+  const packageMatch = text.match(/^package\s+\w+/m);
+  if (!packageMatch) {
+    vscode.window.showErrorMessage("No 'package' statement found.");
+    return;
+  }
+
+  // Check if import already exists to avoid duplicates
+  if (text.includes(`"${importPath}"`)) {
+    vscode.window.showInformationMessage(`Import "${importPath}" already exists.`);
+    return;
+  }
+
   const edit = new vscode.WorkspaceEdit();
-  const importLine = `\t"github.com/${url}"\n`;
+  const importIndent = "\t";
+  const importEntry = `${importIndent}"${importPath}"`;
 
-  const importBlockMatch = text.match(/import\s+\(([\s\S]*?)\)/);
-
-  if (importBlockMatch) {
-    const importStartIndex = importBlockMatch.index!;
-    const importBlock = importBlockMatch[0];
-    const insertPos = importStartIndex + importBlock.length - 1;
-    const insertPosition = doc.positionAt(insertPos);
-    edit.insert(doc.uri, insertPosition, importLine);
+  // Try to find existing multi-line import block: import (...) 
+  const multiLineImportMatch = text.match(/import\s*\(([\s\S]*?)\)/);
+  if (multiLineImportMatch) {
+    // Add to existing multi-line import block
+    const blockEnd = multiLineImportMatch.index! + multiLineImportMatch[0].length - 1;
+    const insertPosition = doc.positionAt(blockEnd);
+    edit.insert(doc.uri, insertPosition, `\n${importEntry}`);
   } else {
-    const packageMatch = text.match(/^package\s+\w+/m);
-    if (!packageMatch) {
-      vscode.window.showErrorMessage("No 'package' statement found.");
-      return;
+    // Try to find single-line import: import "package"
+    const singleLineImportMatch = text.match(/import\s+"[^"]+"/);
+    if (singleLineImportMatch) {
+      // Convert single import to multi-line and add new import
+      const matchStart = doc.positionAt(singleLineImportMatch.index!);
+      const matchEnd = doc.positionAt(singleLineImportMatch.index! + singleLineImportMatch[0].length);
+      const existingImport = singleLineImportMatch[0].match(/"([^"]+)"/)?.[1] || "";
+      
+      const multilineBlock = `import (\n${importIndent}"${existingImport}"\n${importEntry}\n)`;
+      edit.replace(doc.uri, new vscode.Range(matchStart, matchEnd), multilineBlock);
+    } else {
+      // No import exists - create new block after package declaration
+      const packageEnd = doc.positionAt(packageMatch.index! + packageMatch[0].length);
+      const newImportBlock = `\n\nimport (\n${importEntry}\n)`;
+      edit.insert(doc.uri, packageEnd, newImportBlock);
     }
-    const packageEndPos = doc.positionAt(packageMatch.index! + packageMatch[0].length);
-    const newImportBlock = `\n\nimport (\n${importLine})\n`;
-    edit.insert(doc.uri, packageEndPos, newImportBlock);
   }
 
   await vscode.workspace.applyEdit(edit);
-  vscode.window.showInformationMessage(`Added import "${url}"`);
+  vscode.window.showInformationMessage(`Added import "${importPath}"`);
 }
