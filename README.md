@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension to streamline packaging of Go projects. Bundle your Go source into a single distributable file with one click.
 
-![Animated Preview](./assets/go-packager-anim.gif)
+![Animated Preview](./assets/go-packager-anim1.gif)
 
 ## Features
 
