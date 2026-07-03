@@ -3,7 +3,7 @@
   "name": "go-package-extractor",
   "displayName": "Go Package Integrator",
   "description": "Extension in which you can download the go packages at ease without manually getting those nerve wracking git links😁",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "icon":"dist/images/gopher.png",
   "files": [
     "dist/**",
